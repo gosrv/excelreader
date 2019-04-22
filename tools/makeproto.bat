@@ -1,0 +1,1 @@
+protoc --plugin=protoc-gen-go.exe --go_out=../table ../table/table.proto -I ../table
