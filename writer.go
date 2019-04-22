@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
@@ -9,75 +8,58 @@ import (
 	"strings"
 )
 
-func setArrayValue(msg *dynamic.Message, idx int, tp string, arrval []string) error {
-	for _, val := range arrval {
-		switch tp {
-		case "int":
-			if len(val) > 0 {
-				pv, err := strconv.ParseInt(val, 10, 32)
-				if err != nil {
-					return err
-				}
-				msg.AddRepeatedFieldByNumber(idx, int32(pv))
-			} else {
-				msg.AddRepeatedFieldByNumber(idx, int32(0))
-			}
-		case "str":
-			msg.AddRepeatedFieldByNumber(idx, val)
-		case "float":
-			if len(val) > 0 {
-				pv, err := strconv.ParseFloat(val, 32)
-				if err != nil {
-					return err
-				}
-				msg.AddRepeatedFieldByNumber(idx, float32(pv))
-			} else {
-				msg.AddRepeatedFieldByNumber(idx, float32(0))
-			}
-		default:
-			return errors.New("unknown type " + tp)
+type ParseFunc map[string]func(string)interface{}
+
+var ParseFuncs = ParseFunc {
+	"int":func (val string) interface{} {
+		if len(val) == 0 {
+			return int32(0)
 		}
-	}
-	return nil
+		pv, err := strconv.ParseInt(val, 10, 32)
+		verifyNoError(err)
+		return int32(pv)
+	},
+	"str":func (val string) interface{} {
+		return val
+	},
+	"float":func (val string) interface{} {
+		if len(val) == 0 {
+			return float32(0)
+		}
+		pv, err := strconv.ParseFloat(val, 32)
+		verifyNoError(err)
+		return float32(pv)
+	},
 }
 
-func setValue(msg *dynamic.Message, idx int, tp string, val string) error {
+func setArrayValue(msg *dynamic.Message, idx int, tp string, arrval []string) {
+	for _, val := range arrval {
+		pfunc, ok := ParseFuncs[tp]
+		if !ok {
+			panic("not support type " + tp)
+		}
+		pval := pfunc(val)
+		msg.AddRepeatedFieldByNumber(idx, pval)
+	}
+}
+
+func setValue(msg *dynamic.Message, idx int, tp string, val string) {
 	isArr := isArrayType(tp)
 	if isArr {
 		if len(val) == 0 {
-			return nil
+			return
 		}
 		tp = rawType(tp)
-		return setArrayValue(msg, idx, tp, strings.Split(val, "|"))
+		setArrayValue(msg, idx, tp, strings.Split(val, "|"))
+		return
 	}
 
-	switch tp {
-	case "int":
-		if len(val) > 0 {
-			pv, err := strconv.ParseInt(val, 10, 32)
-			if err != nil {
-				return err
-			}
-			msg.SetFieldByNumber(idx, int32(pv))
-		} else {
-			msg.SetFieldByNumber(idx, int32(0))
-		}
-	case "str":
-		msg.SetFieldByNumber(idx, val)
-	case "float":
-		if len(val) > 0 {
-			pv, err := strconv.ParseFloat(val, 32)
-			if err != nil {
-				return err
-			}
-			msg.SetFieldByNumber(idx, float32(pv))
-		} else {
-			msg.SetFieldByNumber(idx, float32(0))
-		}
-	default:
-		return errors.New("unknown type " + tp)
+	pfunc, ok := ParseFuncs[tp]
+	if !ok {
+		panic("not support type " + tp)
 	}
-	return nil
+	pval := pfunc(val)
+	msg.SetFieldByNumber(idx, pval)
 }
 
 func WriteProtoData(descriptor *desc.FileDescriptor, data *ExcelData, rowName int, rowType int, rowData int) []byte {
@@ -89,6 +71,7 @@ func WriteProtoData(descriptor *desc.FileDescriptor, data *ExcelData, rowName in
 	for i := rowData; i < len(data.data); i++ {
 		dmRow := dynamic.NewMessage(rowDesc)
 		var key int64
+		var err error
 		for idx, name := range data.data[rowName] {
 			if len(data.data[i][0]) == 0 {
 				continue
@@ -97,9 +80,9 @@ func WriteProtoData(descriptor *desc.FileDescriptor, data *ExcelData, rowName in
 			if idx < len(data.data[i]) {
 				cellVal = data.data[i][idx]
 			}
-			err := setValue(dmRow, idx+1, data.data[rowType][idx], cellVal)
+			setValue(dmRow, idx+1, data.data[rowType][idx], cellVal)
 			if idx == 0 {
-				key, err = strconv.ParseInt(cellVal, 10, 64)
+				key, err = strconv.ParseInt(cellVal, 10, 32)
 				if err != nil || len(cellVal) == 0 {
 					panic(fmt.Sprintf("data parse error %s:%s:%s", data.name, name, err))
 				}

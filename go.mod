@@ -1,4 +1,4 @@
-module github.com/gosrv/gcluster
+module github.com/gosrv/excelreader
 
 go 1.12
 

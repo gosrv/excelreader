@@ -1,4 +1,3 @@
 .idea
-ldb
-*.log
-design
+data
+table

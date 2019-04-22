@@ -1,4 +1,4 @@
-package table
+package tableloader
 
 import (
 	"io/ioutil"
@@ -8,7 +8,7 @@ import (
 
 var DataDir = "data"
 
-func TableDataLoad(name string) []byte {
+func Load(name string) []byte {
 	data, err := ioutil.ReadFile(path.Join(DataDir, strings.ToLower(name) + ".bytes"))
 	if err != nil {
 		panic(err)

@@ -11,6 +11,7 @@ import (
 	"strings"
 )
 
+// 生成模板文件
 func generateTemplateFile(data []*ExcelData, name string, fname string, meta *CfgMeta) {
 	f, err := os.Create(fname)
 	verifyNoError(err)
@@ -36,7 +37,7 @@ func main() {
 	err := os.MkdirAll(path.Dir(*outputFile), os.ModePerm)
 	verifyNoError(err)
 
-	excelFiles := FineExcelFiles(*excelDir)
+	excelFiles := FindExcelFiles(*excelDir)
 	var edatas []*ExcelData = nil
 	for _, excelFile := range excelFiles {
 		fmt.Println("parse excel file ", excelFile)
@@ -58,16 +59,17 @@ func main() {
 	verifyNoError(err)
 
 	if len(*generateData) > 0 {
+		// 生成一个proto临时文件，反射需要用
 		tmpProtoFile := path.Join(*outputFile, "__table.tmp.proto")
 		generateTemplateFile(edatas, "proto", tmpProtoFile, cfgMeta)
 		defer os.Remove(tmpProtoFile)
-		// 生成proto数据
+		// 解析proto
 		parser := &protoparse.Parser{
 			ImportPaths: []string{},
 		}
 		fileDesc, err := parser.ParseFiles(tmpProtoFile)
 		verifyNoError(err)
-
+		// 生成proto数据
 		for _, edata := range edatas {
 			fmt.Println("begin write data ", edata.name)
 			protoData := WriteProtoData(fileDesc[0], edata, cfgMeta.Meta.LineName, cfgMeta.Meta.LineType, cfgMeta.Meta.LineData)
@@ -81,6 +83,7 @@ func main() {
 		}
 		return
 	} else {
+		// 生成模板文件
 		generateTemplateFile(edatas, *tmplName, *outputFile, cfgMeta)
 	}
 

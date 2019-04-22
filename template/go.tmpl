@@ -3,6 +3,7 @@ package table
 
 import (
     "github.com/golang/protobuf/proto"
+    "github.com/gosrv/excelreader/tableloader"
 )
 
 var TableMgr *tableMgr
@@ -15,7 +16,7 @@ type tableMgr struct {
 
 {{range . -}}
 func (this *tableMgr)load{{.Name}}() {
-    data := TableDataLoad("{{.Name}}")
+    data := tableloader.Load("{{.Name}}")
     itemArray := &{{.Name}}Array{}
     err := proto.Unmarshal(data, itemArray)
     if err != nil {panic(err)}
